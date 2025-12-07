@@ -20,7 +20,12 @@ source=(
     "riven.sysusers"
     "riven.tmpfiles"
 )
-sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP')
+sha256sums=('SKIP'
+            'SKIP'
+            '8f666bb05e6aee5d5dd0061a3d4446db226a8b06546157936b16685aa543b880'
+            'd51ac5815967c13ba3a87aeab5af01c8b25d3278c72630e8b2a75aa7c989a920'
+            '404b76164ffd533becd425f7e52b7d6466502c1863db6d6c2acd034fd76c94f7'
+            '886428ae77b5cbadcc3c7062c827f4ec896e4d07ee9e9732fa7d115279f1a5a8')
 
 pkgver() {
     cd "$srcdir/riven-backend"
