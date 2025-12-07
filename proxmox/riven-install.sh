@@ -41,8 +41,8 @@ if [ -n "$PY_BIN" ]; then
 fi
 msg_ok "Configured Python capabilities"
 
-msg_info "Installing Node.js (22.x) and pnpm"
-curl -fsSL https://deb.nodesource.com/setup_22.x | bash - >/dev/null 2>&1 || {
+msg_info "Installing Node.js (24.x) and pnpm"
+curl -fsSL https://deb.nodesource.com/setup_24.x | bash - >/dev/null 2>&1 || {
 	msg_error "Failed to configure NodeSource repository for Node.js"
 	exit 1
 }
@@ -66,9 +66,13 @@ msg_info "Creating Riven user and directories"
 if ! id -u riven >/dev/null 2>&1; then
   useradd -r -d /riven -s /usr/sbin/nologin riven || true
 fi
-	mkdir -p /riven /riven/data /mount /opt/riven-frontend /etc/riven
-	chown -R riven:riven /riven /riven/data /mount /opt/riven-frontend
-	chmod 755 /riven /riven/data /mount || true
+  mkdir -p /riven /riven/data /mount /opt/riven-frontend /etc/riven
+  chown -R riven:riven /riven /riven/data /mount /opt/riven-frontend
+  chmod 755 /riven /riven/data /mount || true
+  # Cache directory for RivenVFS (not shared across LXCs)
+  mkdir -p /dev/shm/riven-cache
+  chown riven:riven /dev/shm/riven-cache || true
+  chmod 700 /dev/shm/riven-cache || true
 msg_ok "Created Riven user and directories"
 
 msg_info "Installing uv package manager"
@@ -93,11 +97,10 @@ else
 	cd /riven/src
 	git pull --rebase >/dev/null 2>&1 || true
 fi
+chown -R riven:riven /riven/src || true
 cd /riven/src
-# Ensure project virtual environment exists and is owned by riven
-if [ -d .venv ]; then
-	chown -R riven:riven .venv || true
-else
+# Ensure project virtual environment exists
+if [ ! -d .venv ]; then
 	sudo -u riven -H "$UV_BIN" venv >/dev/null 2>&1 || {
 		msg_error "Failed to create Python virtual environment with uv"
 		exit 1
@@ -121,8 +124,15 @@ msg_info "Configuring Riven backend environment"
 
 BACKEND_ENV="/etc/riven/backend.env"
 FRONTEND_ENV="/etc/riven/frontend.env"
-RIVEN_API_KEY=$(openssl rand -hex 16)
 mkdir -p /etc/riven
+
+# Reuse existing API key if present to keep backend and frontend in sync
+if [ -f "$BACKEND_ENV" ]; then
+  RIVEN_API_KEY=$(grep '^RIVEN_API_KEY=' "$BACKEND_ENV" | head -n1 | cut -d= -f2- || true)
+fi
+if [ -z "${RIVEN_API_KEY:-}" ]; then
+  RIVEN_API_KEY=$(openssl rand -hex 16)
+fi
 
 if [ ! -f "$BACKEND_ENV" ]; then
   cat <<EOF >"$BACKEND_ENV"
