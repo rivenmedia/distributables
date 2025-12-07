@@ -20,11 +20,10 @@ export DEBIAN_FRONTEND=noninteractive
 msg_info "Installing Dependencies"
 $STD apt-get update
 $STD apt-get install -y \
-  curl sudo mc git ffmpeg \
-  python3 python3-venv python3-dev build-essential libffi-dev libpq-dev libfuse3-dev pkg-config \
-  fuse3 libcap2-bin ca-certificates openssl \
-  postgresql postgresql-contrib postgresql-client \
-  nodejs npm
+	curl sudo mc git ffmpeg \
+	python3 python3-venv python3-dev build-essential libffi-dev libpq-dev libfuse3-dev pkg-config \
+	fuse3 libcap2-bin ca-certificates openssl \
+	postgresql postgresql-contrib postgresql-client
 msg_ok "Installed Dependencies"
 
 msg_info "Configuring FUSE"
@@ -38,9 +37,21 @@ msg_ok "Configured FUSE"
 msg_info "Configuring Python capabilities for FUSE"
 PY_BIN=$(command -v python3 || true)
 if [ -n "$PY_BIN" ]; then
-  setcap cap_sys_admin+ep "$PY_BIN" || true
+	setcap cap_sys_admin+ep "$PY_BIN" 2>/dev/null || true
 fi
 msg_ok "Configured Python capabilities"
+
+msg_info "Installing Node.js (22.x) and pnpm"
+curl -fsSL https://deb.nodesource.com/setup_22.x | bash - >/dev/null 2>&1 || {
+	msg_error "Failed to configure NodeSource repository for Node.js"
+	exit 1
+}
+$STD apt-get install -y nodejs
+npm install -g pnpm >/dev/null 2>&1 || {
+	msg_error "Failed to install pnpm globally"
+	exit 1
+}
+msg_ok "Installed Node.js and pnpm"
 
 msg_info "Configuring PostgreSQL"
 $STD systemctl enable postgresql
@@ -162,15 +173,20 @@ else
   git pull --rebase >/dev/null 2>&1 || true
 fi
 cd /opt/riven-frontend
-npm install -g pnpm >/dev/null 2>&1 || true
-if command -v pnpm >/dev/null 2>&1; then
-  pnpm install >/dev/null 2>&1
-  pnpm run build >/dev/null 2>&1
-  pnpm prune --prod >/dev/null 2>&1
-else
-  msg_error "pnpm is not available; cannot build Riven frontend"
-  exit 1
-fi
+	if command -v pnpm >/dev/null 2>&1; then
+	  if ! pnpm install >/dev/null 2>&1; then
+	    msg_error "pnpm install failed while installing Riven frontend"
+	    exit 1
+	  fi
+	  if ! pnpm run build >/dev/null 2>&1; then
+	    msg_error "pnpm run build failed while building Riven frontend"
+	    exit 1
+	  fi
+	  pnpm prune --prod >/dev/null 2>&1 || true
+	else
+	  msg_error "pnpm is not available; cannot build Riven frontend"
+	  exit 1
+	fi
 chown -R riven:riven /opt/riven-frontend
 msg_ok "Installed Riven frontend"
 

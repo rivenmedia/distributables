@@ -1,8 +1,4 @@
-# distributables
-
-Proxmox and Unraid Riven apps live here.
-
-## Proxmox LXC helper for Riven
+# Proxmox LXC Helper Script for Riven
 
 On a Proxmox VE host, you can create a Debian 12, unprivileged LXC that runs the
 Riven backend and frontend baremetal by running this command in the Proxmox
