@@ -1,0 +1,95 @@
+# Maintainer: Davide Marcoli <leo@riven.tv>
+pkgname=riven-git
+pkgver=r1.0.0
+pkgrel=1
+pkgdesc="Riven media management (Backend & Frontend)"
+arch=('x86_64')
+url="https://github.com/rivenmedia/riven"
+license=('MIT')
+depends=('python' 'ffmpeg' 'fuse3' 'postgresql-libs' 'libcap')
+makedepends=('git' 'nodejs' 'pnpm' 'python-uv' 'python-setuptools')
+optdepends=('postgresql: Local database server')
+provides=('riven')
+conflicts=('riven')
+backup=('etc/riven/backend.env' 'etc/riven/frontend.env')
+source=(
+    "riven-backend::git+https://github.com/rivenmedia/riven.git"
+    "riven-frontend::git+https://github.com/rivenmedia/riven-frontend.git"
+    "riven-backend.service"
+    "riven-frontend.service"
+    "riven.sysusers"
+    "riven.tmpfiles"
+)
+sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP')
+
+pkgver() {
+    cd "$srcdir/riven-backend"
+    printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
+
+prepare() {
+    # --- Frontend Preparation ---
+    cd "$srcdir/riven-frontend"
+    # Config pnpm to use a local store so it doesn't fail in chroots
+    pnpm config set store-dir "$srcdir/.pnpm-store"
+    pnpm install
+
+    # --- Backend Preparation ---
+    cd "$srcdir/riven-backend"
+    export UV_PYTHON_DOWNLOADS=never
+    uv venv .venv
+}
+
+build() {
+    # --- Frontend Build ---
+    cd "$srcdir/riven-frontend"
+    pnpm run build
+
+    # --- Backend Build ---
+    cd "$srcdir/riven-backend"
+    # Sync dependencies into the virtual environment
+    uv sync --frozen --no-dev
+}
+
+package() {
+    # 1. Install Backend
+    install -d "$pkgdir/opt/riven/backend"
+    cp -a "$srcdir/riven-backend/src" "$pkgdir/opt/riven/backend/"
+    cp -a "$srcdir/riven-backend/.venv" "$pkgdir/opt/riven/backend/"
+    cp "$srcdir/riven-backend/pyproject.toml" "$pkgdir/opt/riven/backend/"
+
+    # 2. Install Frontend
+    install -d "$pkgdir/opt/riven/frontend"
+    cp -a "$srcdir/riven-frontend/build" "$pkgdir/opt/riven/frontend/"
+    
+    # 3. Create Config Directory & Default Env Files
+    install -d "$pkgdir/etc/riven"
+    
+    # Generate default backend.env (Arch specific paths)
+    cat > "$pkgdir/etc/riven/backend.env" <<EOF
+RIVEN_DATABASE_HOST=postgresql+psycopg2://riven:riven@127.0.0.1/riven
+RIVEN_FILESYSTEM_MOUNT_PATH=/mnt/riven-mount
+RIVEN_LIBRARY_PATH=/mnt/riven-library
+RIVEN_FILESYSTEM_CACHE_DIR=/run/riven/cache
+EOF
+    # Secure the backend env file (it may contain keys later)
+    chmod 600 "$pkgdir/etc/riven/backend.env"
+
+    # Generate default frontend.env
+    cat > "$pkgdir/etc/riven/frontend.env" <<EOF
+DATABASE_URL=/var/lib/riven/riven.db
+BACKEND_URL=http://127.0.0.1:8080
+ORIGIN=http://localhost:3000
+EOF
+    chmod 600 "$pkgdir/etc/riven/frontend.env"
+
+    # 4. Install Systemd Services
+    install -Dm644 "$srcdir/riven-backend.service" "$pkgdir/usr/lib/systemd/system/riven-backend.service"
+    install -Dm644 "$srcdir/riven-frontend.service" "$pkgdir/usr/lib/systemd/system/riven-frontend.service"
+
+    # 5. Install Sysusers and Tmpfiles
+    install -Dm644 "$srcdir/riven.sysusers" "$pkgdir/usr/lib/sysusers.d/riven.conf"
+    install -Dm644 "$srcdir/riven.tmpfiles" "$pkgdir/usr/lib/tmpfiles.d/riven.conf"
+}
+
+install=riven.install

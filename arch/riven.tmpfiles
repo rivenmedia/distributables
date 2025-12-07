@@ -1,0 +1,10 @@
+# Home/Data directory
+d /var/lib/riven 0750 riven riven -
+# Config directory permissions
+z /etc/riven/*.env 0600 riven riven -
+# FUSE mount point
+d /mnt/riven-mount 0755 riven riven -
+# Library path (where media lives)
+d /mnt/riven-library 0755 riven riven -
+# Cache directory (in RAM/run)
+d /run/riven/cache 0700 riven riven -

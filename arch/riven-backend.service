@@ -1,0 +1,23 @@
+[Unit]
+Description=Riven Backend
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=riven
+Group=riven
+WorkingDirectory=/opt/riven/backend
+EnvironmentFile=/etc/riven/backend.env
+Environment=PATH=/opt/riven/backend/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
+ExecStart=/opt/riven/backend/.venv/bin/python src/main.py
+
+# Capabilities required for FUSE mounting
+AmbientCapabilities=CAP_SYS_ADMIN
+CapabilityBoundingSet=CAP_SYS_ADMIN
+
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

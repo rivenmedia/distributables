@@ -1,0 +1,19 @@
+[Unit]
+Description=Riven Frontend
+After=network-online.target riven-backend.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=riven
+Group=riven
+WorkingDirectory=/opt/riven/frontend
+EnvironmentFile=/etc/riven/frontend.env
+Environment=PROTOCOL_HEADER=x-forwarded-proto
+Environment=HOST_HEADER=x-forwarded-host
+ExecStart=/usr/bin/node /opt/riven/frontend/build
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
