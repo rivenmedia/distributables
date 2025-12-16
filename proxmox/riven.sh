@@ -105,30 +105,30 @@ fi
 
 # If the in-container installer recorded any media servers, show their
 # default URLs here. The file is managed by proxmox/riven-install.sh.
-MEDIA_FILE="${RIVEN_CT_ROOTFS}/etc/riven/media-servers.txt"
-if [ -f "$MEDIA_FILE" ]; then
-	MEDIA_SERVERS=$(tr '\n' ' ' <"$MEDIA_FILE" | sed -e 's/[[:space:]]\+$//')
-	if [ -n "$MEDIA_SERVERS" ]; then
-		echo -e "Optional media servers installed in this container: ${BL}${MEDIA_SERVERS}${CL}\n"
-		while IFS= read -r srv; do
-			case "$srv" in
-				plex)
-					echo -e "  Plex:     ${BL}http://${RIVEN_CT_IP}:32400/web${CL}"
-					;;
-				jellyfin)
-					echo -e "  Jellyfin: ${BL}http://${RIVEN_CT_IP}:8096${CL}"
-					;;
-				emby)
-					echo -e "  Emby:     ${BL}http://${RIVEN_CT_IP}:8096${CL}"
-					;;
-				*)
-					;;
-			esac
-		done <"$MEDIA_FILE"
-		echo
-	else
-		echo -e "No optional media servers were selected for this container.\n"
-	fi
+MEDIA_SERVERS=""
+if command -v pct >/dev/null 2>&1 && [ -n "${CTID:-}" ]; then
+	MEDIA_SERVERS="$(pct exec "$CTID" -- bash -c 'if [ -f /etc/riven/media-servers.txt ]; then cat /etc/riven/media-servers.txt; fi' 2>/dev/null || true)"
+fi
+
+if [ -n "$MEDIA_SERVERS" ]; then
+	MEDIA_SERVERS_ONELINE=$(printf '%s' "$MEDIA_SERVERS" | tr '\n' ' ' | sed -e 's/[[:space:]]\+$//')
+	echo -e "Optional media servers installed in this container: ${BL}${MEDIA_SERVERS_ONELINE}${CL}\n"
+	while IFS= read -r srv; do
+		case "$srv" in
+			plex)
+				echo -e "  Plex:     ${BL}http://${RIVEN_CT_IP}:32400/web${CL}"
+				;;
+			jellyfin)
+				echo -e "  Jellyfin: ${BL}http://${RIVEN_CT_IP}:8096${CL}"
+				;;
+			emby)
+				echo -e "  Emby:     ${BL}http://${RIVEN_CT_IP}:8096${CL}"
+				;;
+			*)
+				;;
+		esac
+	done <<<"$MEDIA_SERVERS"
+	echo
 else
 	echo -e "No optional media servers were selected for this container.\n"
 fi

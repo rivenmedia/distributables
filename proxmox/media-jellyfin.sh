@@ -55,9 +55,14 @@ install_jellyfin_media_server() {
 	  fi
 
 	  # Ensure permissions are sane; installer already does this, so best-effort.
-	  chown -R jellyfin:adm /etc/jellyfin 2>/dev/null || true
-	  systemctl restart jellyfin 2>/dev/null || true
+		  chown -R jellyfin:adm /etc/jellyfin 2>/dev/null || true
+		  systemctl restart jellyfin 2>/dev/null || true
 
-	  msg_ok "Installed Jellyfin Media Server"
+		  # Ensure Jellyfin can read Riven's VFS by joining the riven group if it exists.
+		  if getent group riven >/dev/null 2>&1; then
+		    usermod -aG riven jellyfin 2>/dev/null || true
+		  fi
+	
+		  msg_ok "Installed Jellyfin Media Server"
 }
 

@@ -68,6 +68,11 @@ install_plex_media_server() {
       -e 's/^render:x:108:$/ssl-cert:x:108:/' /etc/group 2>/dev/null || true
   fi
 
+	  # Ensure Plex can read Riven's VFS by joining the riven group if it exists.
+	  if getent group riven >/dev/null 2>&1; then
+	    usermod -aG riven plex 2>/dev/null || true
+	  fi
+
   msg_ok "Installed Plex Media Server"
 }
 
