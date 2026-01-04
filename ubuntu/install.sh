@@ -201,10 +201,19 @@ done
 SERVER_IP="$(ip route get 1.1.1.1 2>/dev/null | awk '{print $7; exit}')"
 [ -z "$SERVER_IP" ] && SERVER_IP="SERVER_IP"
 
-banner "IMPORTANT NEXT STEPS"
-
-echo "• Edit Riven configuration:"
+echo "⚠️  REQUIRED CONFIGURATION (DO NOT SKIP)"
+echo
+echo "• You MUST edit the Riven configuration file:"
 echo "  /mnt/riven/backend/settings.json"
+echo
+echo "• If you do NOT:"
+echo "    - Add at least ONE scraper"
+echo "    - Configure at least ONE media server (Plex / Jellyfin / Emby)"
+echo
+echo "❌ RIVEN WILL NOT WORK"
+echo
+echo "The backend will start, but NO content will appear and"
+echo "scraping will silently fail until this is configured."
 echo
 echo "• Movies / TV / Anime will appear in:"
 echo "  /mnt/riven/mount"
