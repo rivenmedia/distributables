@@ -1,13 +1,10 @@
 # Riven Proxmox LXC Installer (Docker)
 
-## Run on Proxmox host
-Unzip on the Proxmox host, then:
+## ▶️ Run on Proxmox host
 
 ```bash
-cd riven-proxmox-lxc-installer
-bash install.sh
+sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/AquaHorizonGaming/distributables/main/proxmox/install.sh)"
 ```
-
 ## What it does
 - Creates an **unprivileged Debian 12** LXC
 - Enables **nesting + keyctl + fuse**
