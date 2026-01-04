@@ -32,30 +32,34 @@ err()  { echo -e "${RED}[✖]${NC} $1"; exit 1; }
 [[ "$ID" == "ubuntu" ]] || err "Ubuntu required"
 
 ############################################
-# DEPENDENCY CHECK
+# COMMAND DETECTION (NO APT UNLESS NEEDED)
 ############################################
-REQUIRED_PKGS=(
+REQUIRED_CMDS=(
   curl
-  ca-certificates
-  gnupg
-  lsb-release
   openssl
+  gpg
+  lsb_release
 )
 
-MISSING_PKGS=()
+MISSING_CMDS=()
 
-for pkg in "${REQUIRED_PKGS[@]}"; do
-  if ! dpkg -s "$pkg" >/dev/null 2>&1; then
-    MISSING_PKGS+=("$pkg")
+for cmd in "${REQUIRED_CMDS[@]}"; do
+  if ! command -v "$cmd" >/dev/null 2>&1; then
+    MISSING_CMDS+=("$cmd")
   fi
 done
 
-if (( ${#MISSING_PKGS[@]} > 0 )); then
-  step "Installing missing dependencies: ${MISSING_PKGS[*]}"
+if (( ${#MISSING_CMDS[@]} > 0 )); then
+  step "Installing missing system commands: ${MISSING_CMDS[*]}"
   apt-get update
-  apt-get install -y "${MISSING_PKGS[@]}"
+  apt-get install -y \
+    curl \
+    ca-certificates \
+    gnupg \
+    lsb-release \
+    openssl
 else
-  log "All base dependencies already installed"
+  log "All required system commands detected — skipping apt"
 fi
 
 ############################################
@@ -96,7 +100,7 @@ curl -fsSL "$COMPOSE_URL" -o docker-compose.yml \
   || err "Failed to download docker-compose.yml"
 
 ############################################
-# ENV FILE GENERATION
+# ENV AUTO-GEN
 ############################################
 if [[ ! -f "$ENV_FILE" ]]; then
   step "Generating .env"
@@ -122,11 +126,13 @@ else
 fi
 
 ############################################
-# DOCKER INSTALL
+# DOCKER DETECTION + INSTALL
 ############################################
-step "Installing Docker if missing"
+step "Checking Docker"
 
 if ! command -v docker >/dev/null 2>&1; then
+  step "Installing Docker"
+
   install -m 0755 -d /etc/apt/keyrings
 
   curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
