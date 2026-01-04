@@ -16,7 +16,7 @@ To create a **Debian 12 unprivileged LXC** configured to run Riven on a
 **Proxmox VE host**, run the following command **from the Proxmox host shell**:
 
 ```bash
-bash -c "$(wget -qLO - https://raw.githubusercontent.com/rivenmedia/distributables/main/proxmox/riven.sh)"
+bash -c "$(wget -qLO - https://raw.githubusercontent.com/AquaHorizonGaming/distributables/main/proxmox/riven.sh)"
 ```
 
 This installer handles:
@@ -36,7 +36,7 @@ To install Riven directly on an **Ubuntu system** (VM or bare metal),
 run the installer below:
 
 ```bash
-sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/rivenmedia/distributables/main/ubuntu/install.sh)"
+sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/AquaHorizonGaming/distributables/main/ubuntu/install.sh)"
 ```
 
 This installer handles:
