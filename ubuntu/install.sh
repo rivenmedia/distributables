@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# installer-version: 2026-01-04T02:05Z
+
 ############################################
 # CONFIG
 ############################################
@@ -32,25 +34,19 @@ err()  { echo -e "${RED}[✖]${NC} $1"; exit 1; }
 [[ "$ID" == "ubuntu" ]] || err "Ubuntu required"
 
 ############################################
-# COMMAND DETECTION (NO APT UNLESS NEEDED)
+# COMMAND DETECTION
 ############################################
-REQUIRED_CMDS=(
-  curl
-  openssl
-  gpg
-  lsb_release
-)
-
-MISSING_CMDS=()
+REQUIRED_CMDS=(curl openssl gpg lsb_release)
+MISSING=false
 
 for cmd in "${REQUIRED_CMDS[@]}"; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
-    MISSING_CMDS+=("$cmd")
+    MISSING=true
   fi
 done
 
-if (( ${#MISSING_CMDS[@]} > 0 )); then
-  step "Installing missing system commands: ${MISSING_CMDS[*]}"
+if $MISSING; then
+  step "Installing missing system commands"
   apt-get update
   apt-get install -y \
     curl \
@@ -72,7 +68,6 @@ DEFAULT_TZ="${DEFAULT_TZ:-UTC}"
 
 if [[ ! -t 0 ]]; then
   TZ_SELECTED="$DEFAULT_TZ"
-  log "Non-interactive install — using timezone: $TZ_SELECTED"
 else
   echo
   echo -e "Detected timezone: ${GREEN}$DEFAULT_TZ${NC}"
@@ -84,10 +79,9 @@ timedatectl set-timezone "$TZ_SELECTED"
 log "Timezone set to $TZ_SELECTED"
 
 ############################################
-# DOWNLOAD DIRECTORY
+# DOWNLOAD DIR
 ############################################
 step "Preparing download directory"
-
 mkdir -p "$DOWNLOAD_DIR"
 cd "$DOWNLOAD_DIR"
 
@@ -95,12 +89,13 @@ cd "$DOWNLOAD_DIR"
 # DOWNLOAD COMPOSE
 ############################################
 step "Downloading docker-compose.yml"
+log "Using COMPOSE_URL=$COMPOSE_URL"
 
 curl -fsSL "$COMPOSE_URL" -o docker-compose.yml \
   || err "Failed to download docker-compose.yml"
 
 ############################################
-# ENV AUTO-GEN
+# ENV FILE
 ############################################
 if [[ ! -f "$ENV_FILE" ]]; then
   step "Generating .env"
@@ -109,7 +104,7 @@ if [[ ! -f "$ENV_FILE" ]]; then
   BACKEND_API_KEY="$(openssl rand -hex 32)"
   AUTH_SECRET="$(openssl rand -hex 32)"
 
-  cat > "$ENV_FILE" <<EOF
+cat > "$ENV_FILE" <<EOF
 TZ=$TZ_SELECTED
 
 POSTGRES_DB=riven
@@ -126,7 +121,7 @@ else
 fi
 
 ############################################
-# DOCKER DETECTION + INSTALL
+# DOCKER
 ############################################
 step "Checking Docker"
 
@@ -139,10 +134,9 @@ if ! command -v docker >/dev/null 2>&1; then
     | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
   chmod a+r /etc/apt/keyrings/docker.gpg
 
-  echo \
-    "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
-    https://download.docker.com/linux/ubuntu \
-    $(lsb_release -cs) stable" \
+  echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+https://download.docker.com/linux/ubuntu \
+$(lsb_release -cs) stable" \
     > /etc/apt/sources.list.d/docker.list
 
   apt-get update
@@ -191,7 +185,6 @@ systemctl enable --now riven-bind-shared.service
 # VERIFY MOUNT
 ############################################
 step "Verifying mount propagation"
-
 findmnt -T /mnt/riven/mount -o PROPAGATION | grep -q shared \
   || err "Mount is NOT shared"
 
