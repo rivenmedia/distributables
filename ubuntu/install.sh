@@ -11,6 +11,7 @@ LIBRARY_PATH="/mnt/riven/backend"
 
 ############################################
 # HELPERS
+############################################
 # banner prints a framed banner that displays the provided message.
 banner(){ echo -e "\n========================================\n $1\n========================================"; }
 # ok prints a success message prefixed with a checkmark and the provided text.
@@ -78,11 +79,52 @@ wait_for_url() {
 }
 
 ############################################
+# ARGUMENTS
+############################################
+MODE="${1:-install}"
+if [[ "$MODE" != "install" && "$MODE" != "--update" ]]; then
+  fail "Usage: sudo bash install.sh [--update]"
+fi
+
+############################################
 # PRECHECKS
 ############################################
 [ "$(id -u)" -eq 0 ] || fail "Run with sudo"
 . /etc/os-release || fail "Cannot detect OS"
 [ "${ID:-}" = "ubuntu" ] || fail "Ubuntu is required"
+
+############################################
+# UPDATE MODE (NO REINSTALL)
+############################################
+if [[ "$MODE" == "--update" ]]; then
+  banner "Update Mode"
+  if [ ! -d "$INSTALL_DIR" ]; then
+    fail "Install dir not found: $INSTALL_DIR (run install first)"
+  fi
+  if ! command -v docker >/dev/null 2>&1; then
+    fail "Docker not installed (run install first)"
+  fi
+
+  cd "$INSTALL_DIR"
+  if [ ! -f docker-compose.yml ] || [ ! -f .env ]; then
+    fail "Missing docker-compose.yml or .env in $INSTALL_DIR"
+  fi
+
+  # If we saved MEDIA_PROFILE earlier, prefer it so media starts first
+  MEDIA_PROFILE="$(grep -E '^MEDIA_PROFILE=' .env | cut -d= -f2- || true)"
+  if [ -n "$MEDIA_PROFILE" ]; then
+    banner "Starting Media Server First (saved: $MEDIA_PROFILE)"
+    docker compose --profile "$MEDIA_PROFILE" up -d
+  else
+    warn "MEDIA_PROFILE not found in .env — media-first order cannot be enforced automatically"
+  fi
+
+  banner "Updating Riven Stack"
+  docker compose pull
+  docker compose up -d
+  ok "Update complete"
+  exit 0
+fi
 
 ############################################
 # TIMEZONE
@@ -100,6 +142,18 @@ ok "Timezone set: $TZ_SELECTED"
 banner "System Dependencies"
 apt-get update
 apt-get install -y ca-certificates curl gnupg lsb-release openssl
+
+############################################
+# FUSE
+############################################
+banner "FUSE"
+if [ ! -e /dev/fuse ]; then
+  warn "/dev/fuse not found — installing fuse"
+  apt-get install -y fuse3 || apt-get install -y fuse
+fi
+[ -e /dev/fuse ] || fail "FUSE is required but /dev/fuse still not present"
+
+ok "FUSE available"
 
 ############################################
 # DOCKER
@@ -201,9 +255,11 @@ if [ ! -f .env ]; then
   cat > .env <<EOF
 TZ=${TZ_SELECTED}
 ORIGIN=${ORIGIN_SELECTED}
+
 POSTGRES_DB=riven
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=$(openssl rand -hex 24)
+
 BACKEND_API_KEY=$(openssl rand -hex 32)
 AUTH_SECRET=$(openssl rand -hex 32)
 
@@ -307,7 +363,6 @@ RIVEN_DOWNLOADERS_ALL_DEBRID_ENABLED=false
 RIVEN_DOWNLOADERS_ALL_DEBRID_API_KEY=
 EOF
 else
-  # Keep existing values but ensure these are set/updated
   set_env TZ "$TZ_SELECTED"
   set_env ORIGIN "$ORIGIN_SELECTED"
   set_env RIVEN_UPDATERS_LIBRARY_PATH "$LIBRARY_PATH"
@@ -316,12 +371,17 @@ fi
 ok ".env ready"
 
 ############################################
-# MEDIA SERVER (REQUIRED) — URLs AUTO, ASK KEYS ONLY
+# MEDIA SERVER (REQUIRED)
+# - Select media server first
+# - Start it
+# - Tell user to complete initial setup
+# - THEN ask for API key/token and enable correct updater vars
 ############################################
 banner "Media Server Selection (REQUIRED)"
 
 MEDIA_PROFILE=""
 MEDIA_HEALTH_URL=""
+MEDIA_SETUP_URL=""
 
 while true; do
   echo "1) Jellyfin"
@@ -333,37 +393,19 @@ while true; do
     1)
       MEDIA_PROFILE="jellyfin"
       MEDIA_HEALTH_URL="http://localhost:8096"
-
-      set_env RIVEN_UPDATERS_JELLYFIN_ENABLED "true"
-      set_env RIVEN_UPDATERS_JELLYFIN_URL "http://jellyfin:8096"
-      set_env RIVEN_UPDATERS_PLEX_ENABLED "false"
-      set_env RIVEN_UPDATERS_EMBY_ENABLED "false"
-
-      set_env RIVEN_UPDATERS_JELLYFIN_API_KEY "$(require_non_empty "Jellyfin API Key")"
+      MEDIA_SETUP_URL="http://localhost:8096"
       break
       ;;
     2)
       MEDIA_PROFILE="plex"
       MEDIA_HEALTH_URL="http://localhost:32400/web"
-
-      set_env RIVEN_UPDATERS_PLEX_ENABLED "true"
-      set_env RIVEN_UPDATERS_PLEX_URL "http://plex:32400"
-      set_env RIVEN_UPDATERS_JELLYFIN_ENABLED "false"
-      set_env RIVEN_UPDATERS_EMBY_ENABLED "false"
-
-      set_env RIVEN_UPDATERS_PLEX_TOKEN "$(require_non_empty "Plex Token")"
+      MEDIA_SETUP_URL="http://localhost:32400/web"
       break
       ;;
     3)
       MEDIA_PROFILE="emby"
       MEDIA_HEALTH_URL="http://localhost:8097"
-
-      set_env RIVEN_UPDATERS_EMBY_ENABLED "true"
-      set_env RIVEN_UPDATERS_EMBY_URL "http://emby:8097"
-      set_env RIVEN_UPDATERS_PLEX_ENABLED "false"
-      set_env RIVEN_UPDATERS_JELLYFIN_ENABLED "false"
-
-      set_env RIVEN_UPDATERS_EMBY_API_KEY "$(require_non_empty "Emby API Key")"
+      MEDIA_SETUP_URL="http://localhost:8097"
       break
       ;;
     *)
@@ -371,6 +413,45 @@ while true; do
       ;;
   esac
 done
+
+set_env MEDIA_PROFILE "$MEDIA_PROFILE"
+
+banner "Starting Media Server First"
+docker compose --profile "$MEDIA_PROFILE" up -d
+wait_for_url "$MEDIA_PROFILE" "$MEDIA_HEALTH_URL" 300
+
+banner "Media Server Setup Required"
+echo "Open: $MEDIA_SETUP_URL"
+echo
+echo "Do the first-time setup NOW (create admin, libraries, etc.)"
+echo "Then generate/copy the API key/token for Riven updates."
+echo
+read -rp "Press ENTER when you have the API key/token ready... " _
+
+# Enable ONLY the chosen updater + ask key/token now (AFTER media is up)
+case "$MEDIA_PROFILE" in
+  jellyfin)
+    set_env RIVEN_UPDATERS_JELLYFIN_ENABLED "true"
+    set_env RIVEN_UPDATERS_JELLYFIN_URL "http://jellyfin:8096"
+    set_env RIVEN_UPDATERS_PLEX_ENABLED "false"
+    set_env RIVEN_UPDATERS_EMBY_ENABLED "false"
+    set_env RIVEN_UPDATERS_JELLYFIN_API_KEY "$(require_non_empty "Jellyfin API Key")"
+    ;;
+  plex)
+    set_env RIVEN_UPDATERS_PLEX_ENABLED "true"
+    set_env RIVEN_UPDATERS_PLEX_URL "http://plex:32400"
+    set_env RIVEN_UPDATERS_JELLYFIN_ENABLED "false"
+    set_env RIVEN_UPDATERS_EMBY_ENABLED "false"
+    set_env RIVEN_UPDATERS_PLEX_TOKEN "$(require_non_empty "Plex Token")"
+    ;;
+  emby)
+    set_env RIVEN_UPDATERS_EMBY_ENABLED "true"
+    set_env RIVEN_UPDATERS_EMBY_URL "http://emby:8097"
+    set_env RIVEN_UPDATERS_PLEX_ENABLED "false"
+    set_env RIVEN_UPDATERS_JELLYFIN_ENABLED "false"
+    set_env RIVEN_UPDATERS_EMBY_API_KEY "$(require_non_empty "Emby API Key")"
+    ;;
+esac
 
 ############################################
 # DOWNLOADERS (REQUIRED) — >= 1
@@ -471,14 +552,11 @@ done
 ############################################
 # STARTUP ORDER (REQUIRED): MEDIA -> RIVEN
 ############################################
-banner "Starting Media Server First"
-docker compose --profile "$MEDIA_PROFILE" up -d
-wait_for_url "$MEDIA_PROFILE" "$MEDIA_HEALTH_URL" 300
-
-banner "Starting Riven"
+banner "Starting Riven (after media is ready)"
 docker compose pull
 docker compose up -d riven-db riven riven-frontend
 
 banner "Install Complete"
 ok "Riven is configured and running"
 ok "Frontend: http://localhost:3000 (ORIGIN=${ORIGIN_SELECTED})"
+ok "Backend:  http://localhost:8080"
