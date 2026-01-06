@@ -36,7 +36,7 @@ To install Riven directly on an **Ubuntu system** (VM or bare metal),
 run the installer below:
 
 ```bash
-sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/AquaHorizonGaming/distributables/main/ubuntu/install.sh)"
+sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/AquaHorizonGaming/Riven-Scripts/main/ubuntu/install.sh)"
 ```
 
 This installer handles:
