@@ -9,8 +9,6 @@ services:
     volumes:
       - /mnt/riven/mount:/media:ro
       - /mnt/jellyfin:/config
-    devices:
-      - /dev/dri:/dev/dri
     networks: [media]
 
   plex:
@@ -27,8 +25,6 @@ services:
     volumes:
       - /mnt/riven/mount:/media:ro
       - /mnt/plex:/config
-    devices:
-      - /dev/dri:/dev/dri
     networks: [media]
 
   emby:
@@ -41,8 +37,6 @@ services:
     volumes:
       - /mnt/riven/mount:/media:ro
       - /mnt/emby:/config
-    devices:
-      - /dev/dri:/dev/dri
     networks: [media]
 
 networks:
