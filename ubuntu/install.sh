@@ -178,8 +178,14 @@ EOF
 }
 
 
+sudo mount --bind $MOUNT_PATH $MOUNT_PATH
+sudo mount --make-rshared $MOUNT_PATH
+
+  banner "Mounted $MOUNT_PATH"
+
+
 ############################################
-# DOWNLOAD COMPOSE FILES FIRST
+# DOWNLOAD COMPOSE FILES 
 ############################################
 banner "Docker Compose Files"
 cd "$INSTALL_DIR"
@@ -229,7 +235,7 @@ banner "Media API Key"
 MEDIA_API_KEY="$(require_non_empty "Enter media API key / token")"
 
 ############################################
-# FRONTEND ORIGIN (MOVED HERE)
+# FRONTEND ORIGIN 
 ############################################
 banner "Frontend Origin"
 ORIGIN="$DEFAULT_ORIGIN"
@@ -238,7 +244,7 @@ read -rp "Using reverse proxy? (y/N): " USE_PROXY
 ok "ORIGIN=$ORIGIN"
 
 ############################################
-# DOWNLOADER (REQUIRED)
+# DOWNLOADER
 ############################################
 banner "Downloader Selection (REQUIRED)"
 echo "1) Real-Debrid"
