@@ -7,7 +7,7 @@ set -euo pipefail
 INSTALL_DIR="/opt/riven"
 BACKEND_PATH="/mnt/riven/backend"
 MOUNT_PATH="/mnt/riven/mount"
-COMPOSE_URL="https://raw.githubusercontent.com/AquaHorizonGaming/Riven-Scripts/main/ubuntu/docker-compose.yml"
+COMPOSE_URL="https://raw.githubusercontent.com/AquaHorizonGaming/distributables/main/ubuntu/docker-compose.yml"
 DEFAULT_ORIGIN="http://localhost:3000"
 
 ############################################
@@ -64,7 +64,7 @@ timedatectl set-timezone "$TZ_SELECTED"
 ok "Timezone set: $TZ_SELECTED"
 
 ############################################
-# SYSTEM DEPS
+# SYSTEM DEPENDENCIES
 ############################################
 banner "System Dependencies"
 apt-get update
@@ -94,12 +94,12 @@ chown -R "${SUDO_USER:-1000}:${SUDO_USER:-1000}" /mnt/riven
 ok "Filesystem ready"
 
 ############################################
-# DOWNLOAD COMPOSE
+# DOCKER COMPOSE
 ############################################
 banner "Docker Compose"
 cd "$INSTALL_DIR"
 curl -fsSL "$COMPOSE_URL" -o docker-compose.yml
-ok "docker-compose.yml updated"
+ok "docker-compose.yml downloaded"
 
 ############################################
 # FRONTEND ORIGIN
@@ -120,22 +120,33 @@ echo "3) Emby"
 read -rp "Select ONE media server: " MEDIA_SEL
 
 case "$MEDIA_SEL" in
-  1) MEDIA_PROFILE="jellyfin"; MEDIA_URL="http://localhost:8096" ;;
-  2) MEDIA_PROFILE="plex"; MEDIA_URL="http://localhost:32400" ;;
-  3) MEDIA_PROFILE="emby"; MEDIA_URL="http://localhost:8097" ;;
-  *) fail "Media server REQUIRED" ;;
+  1)
+    MEDIA_PROFILE="jellyfin"
+    MEDIA_URL="http://jellyfin:8096"
+    ;;
+  2)
+    MEDIA_PROFILE="plex"
+    MEDIA_URL="http://plex:32400"
+    ;;
+  3)
+    MEDIA_PROFILE="emby"
+    MEDIA_URL="http://emby:8097"
+    ;;
+  *)
+    fail "Media server REQUIRED"
+    ;;
 esac
 
 docker compose --profile "$MEDIA_PROFILE" up -d "$MEDIA_PROFILE"
 wait_for_url "$MEDIA_PROFILE" "$MEDIA_URL"
 
-banner "Finish media setup, then press ENTER"
+banner "Finish media setup in the UI, then press ENTER"
 read -r _
 
 case "$MEDIA_PROFILE" in
   jellyfin) MEDIA_API_KEY="$(require_non_empty "Jellyfin API Key")" ;;
-  plex) MEDIA_API_KEY="$(require_non_empty "Plex Token")" ;;
-  emby) MEDIA_API_KEY="$(require_non_empty "Emby API Key")" ;;
+  plex)     MEDIA_API_KEY="$(require_non_empty "Plex Token")" ;;
+  emby)     MEDIA_API_KEY="$(require_non_empty "Emby API Key")" ;;
 esac
 
 ############################################
@@ -148,9 +159,9 @@ echo "3) Debrid-Link"
 read -rp "Select ONE downloader: " DL_SEL
 
 case "$DL_SEL" in
-  1) DL_TYPE="REAL_DEBRID"; DL_KEY="$(require_non_empty "Real-Debrid API Key")" ;;
-  2) DL_TYPE="ALL_DEBRID"; DL_KEY="$(require_non_empty "All-Debrid API Key")" ;;
-  3) DL_TYPE="DEBRID_LINK"; DL_KEY="$(require_non_empty "Debrid-Link API Key")" ;;
+  1) DL_TYPE="REAL_DEBRID";  DL_KEY="$(require_non_empty "Real-Debrid API Key")" ;;
+  2) DL_TYPE="ALL_DEBRID";   DL_KEY="$(require_non_empty "All-Debrid API Key")" ;;
+  3) DL_TYPE="DEBRID_LINK";  DL_KEY="$(require_non_empty "Debrid-Link API Key")" ;;
   *) fail "Downloader REQUIRED" ;;
 esac
 
@@ -163,13 +174,17 @@ echo "2) Prowlarr"
 read -rp "Select ONE scraper: " SCR_SEL
 
 case "$SCR_SEL" in
-  1) SCRAPER="TORRENTIO" ;;
+  1)
+    SCRAPER="TORRENTIO"
+    ;;
   2)
     SCRAPER="PROWLARR"
     PROWLARR_URL="$(require_url "Prowlarr URL")"
     PROWLARR_KEY="$(require_non_empty "Prowlarr API Key")"
     ;;
-  *) fail "Scraper REQUIRED" ;;
+  *)
+    fail "Scraper REQUIRED"
+    ;;
 esac
 
 ############################################
@@ -274,4 +289,3 @@ docker compose up -d riven-db riven riven-frontend
 banner "DONE"
 ok "Frontend: http://localhost:3000"
 ok "Backend:  http://localhost:8080"
-ok "Riven Started"
