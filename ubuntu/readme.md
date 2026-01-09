@@ -138,6 +138,13 @@ If containers are running and no errors are shown:
 
 This command **completely removes Riven and all related components** installed by the Riven Ubuntu installer.
 
+---
+
+### ▶️ Run this command on Ubuntu
+
+```bash
+sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/AquaHorizonGaming/distributables/main/ubuntu/riven-uninstall.sh)"
+
 ### ⚠️ What this removes
 
 - Riven containers
@@ -152,12 +159,6 @@ This command **completely removes Riven and all related components** installed b
 
 > Docker itself is **preserved by default** (you will be prompted).
 
----
-
-### ▶️ Run this command on Ubuntu
-
-```bash
-sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/AquaHorizonGaming/distributables/main/ubuntu/uninstall.sh)"
 
 
 
