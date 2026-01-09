@@ -144,7 +144,7 @@ This command **completely removes Riven and all related components** installed b
 
 ```bash
 sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/AquaHorizonGaming/distributables/main/ubuntu/riven-uninstall.sh)"
-
+```
 ### ⚠️ What this removes
 
 - Riven containers
