@@ -318,20 +318,38 @@ AUTH_SECRET="$(openssl rand -base64 32)"
 ############################################
 
 # ------------------------------------------
-# PART 1: Generate a candidate API key
-# (matches Riven charset + length intent)
+# PART 1: Generate API key
 # ------------------------------------------
 BACKEND_API_KEY="$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 32)"
 
 # ------------------------------------------
 # PART 2: Validate using Riven's logic
-# Riven rule: len(API_KEY) == 32
 # ------------------------------------------
 if [ "${#BACKEND_API_KEY}" -ne 32 ]; then
-  # ----------------------------------------
-  # PART 3: Regenerate once if invalid
-  # ----------------------------------------
-  BACKEND_API_KEY="$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 32)"
+  echo
+  echo "============================================"
+  echo "❌ RIVEN INSTALL ERROR: API KEY GENERATION"
+  echo "============================================"
+  echo
+  echo "An invalid BACKEND_API_KEY was generated."
+  echo
+  echo "Expected length : 32 characters"
+  echo "Actual length   : ${#BACKEND_API_KEY}"
+  echo
+  echo "This should NEVER happen under normal"
+  echo "conditions and likely indicates one of:"
+  echo "  • /dev/urandom is unavailable"
+  echo "  • Shell I/O truncation"
+  echo "  • Environment corruption"
+  echo
+  echo "Installation cannot continue safely."
+  echo "Please investigate the system environment"
+  echo "and re-run the installer."
+  echo
+  echo "============================================"
+  echo
+  exit 1
+fi
 
 ############################################
 # MEDIA UPDATER FLAGS
