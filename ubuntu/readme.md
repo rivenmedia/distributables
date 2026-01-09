@@ -11,7 +11,7 @@ Run this command on Ubuntu:
     sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/AquaHorizonGaming/distributables/main/ubuntu/install.sh)"
 ```
 
-<a id="updater"></a>
+<a id="installer"></a># 🔁 Riven Ubuntu Installer
 # Riven Ubuntu Installer
 
 This installer deploys **Riven** on Ubuntu using Docker and Docker Compose with a fully interactive guided setup.
