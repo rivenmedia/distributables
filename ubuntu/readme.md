@@ -70,8 +70,7 @@ The installer performs a fully interactive configuration.
 - Pull all required container images
 - Start containers with retry logic
 - Verify that all services are running
-- Use the `.env` file to pass configuration into the containers 
-- (mapped to `settings.json`)
+- Use the `.env` file to pass configuration into the containers (mapped to `settings.json`)
 
 NO manual configuration is required after install.
 
