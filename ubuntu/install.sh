@@ -139,12 +139,15 @@ apt-get install -y ca-certificates curl gnupg lsb-release openssl fuse3
 # DOCKER
 ############################################
 banner "Docker"
-if ! command -v docker >/dev/null; then
-  curl -fsSL https://get.docker.com | sh
-  systemctl enable --now docker
-fi
-ok "Docker ready"
 
+if command -v docker >/dev/null 2>&1; then
+  ok "Docker already installed"
+else
+  apt-get update -y || fail "apt update failed"
+  apt-get install -y docker.io docker-compose-plugin || fail "Docker install failed"
+  systemctl enable --now docker || fail "Docker service failed"
+  ok "Docker installed"
+fi
 
 ############################################
 # USER / UID / GID DETECTION
