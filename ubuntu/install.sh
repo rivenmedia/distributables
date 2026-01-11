@@ -96,6 +96,34 @@ sanitize() {
 }
 
 ############################################
+# OS CHECK (Ubuntu only)
+############################################
+banner "OS Check"
+
+require_ubuntu() {
+  # Must be Linux
+  if [[ "$(uname -s)" != "Linux" ]]; then
+    fail "This installer must be run on Linux (Ubuntu). Detected: $(uname -s)"
+  fi
+
+  # Must have /etc/os-release
+  if [[ ! -f /etc/os-release ]]; then
+    fail "Cannot determine OS (missing /etc/os-release)"
+  fi
+
+  # Must be Ubuntu
+  . /etc/os-release
+
+  if [[ "${ID:-}" != "ubuntu" ]]; then
+    fail "Unsupported OS: ${PRETTY_NAME:-unknown}. Ubuntu required."
+  fi
+
+  ok "Ubuntu detected (${PRETTY_NAME})"
+}
+
+require_ubuntu
+
+############################################
 # ROOT CHECK
 ############################################
 [[ "$(id -u)" -eq 0 ]] || fail "Run with sudo"
