@@ -170,13 +170,27 @@ log "Logging initialized"
 log "Log file: $LOG_FILE"
 
 ############################################
-# TIMEZONE
+# TIMEZONE (INSTALLER SAFE)
 ############################################
 banner "Timezone"
-TZ_DETECTED="$(timedatectl show --property=Timezone --value || echo UTC)"
+
+detect_timezone() {
+  timedatectl show --property=Timezone --value 2>/dev/null \
+    || cat /etc/timezone 2>/dev/null \
+    || echo UTC
+}
+
+TZ_DETECTED="$(detect_timezone)"
 read -rp "Timezone [$TZ_DETECTED]: " TZ_INPUT
 TZ_SELECTED="${TZ_INPUT:-$TZ_DETECTED}"
-timedatectl set-timezone "$TZ_SELECTED"
+
+if [[ ! -f "/usr/share/zoneinfo/$TZ_SELECTED" ]]; then
+  fail "Invalid timezone: $TZ_SELECTED"
+fi
+
+ln -sf "/usr/share/zoneinfo/$TZ_SELECTED" /etc/localtime
+echo "$TZ_SELECTED" > /etc/timezone
+
 ok "Timezone set: $TZ_SELECTED"
 
 ############################################
