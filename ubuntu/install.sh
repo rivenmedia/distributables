@@ -14,15 +14,15 @@ RIVEN_COMPOSE_URL="https://raw.githubusercontent.com/AquaHorizonGaming/distribut
 
 DEFAULT_ORIGIN="http://localhost:3000"
 
-INSTALL_VERSION="v0.5.4"
+INSTALL_VERSION="v0.5.5"
 
 ############################################
 # HELPERS
 ############################################
 banner(){ echo -e "\n========================================\n $1\n========================================"; }
-ok()   { echo "✔ $1"; }
-warn() { echo "⚠ $1"; }
-fail() { echo "✖ $1"; exit 1; }
+ok()   { printf "✔  %s\n" "$1"; }
+warn() { printf "⚠  %s\n" "$1"; }
+fail() { printf "✖  %s\n" "$1"; exit 1; }
 
 ############################################
 # REQUIRED NON-EMPTY (SILENT)
