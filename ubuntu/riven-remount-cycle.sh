@@ -18,7 +18,8 @@ DEFAULT_MOUNT="/mnt/riven/mount"
 UNMOUNT_RETRIES=5
 WAIT_BETWEEN=2
 REMOUNT_WAIT=5
-VERSION=1.3
+WAIT_TIME=5
+VERSION=1.4
 
 ############################################
 # OUTPUT HELPERS
@@ -182,22 +183,34 @@ ok "Propagation verified: $PROP"
 ############################################
 section "Starting Services"
 
-docker start "$RIVEN_CONTAINER" >/dev/null
-ok "Riven container started"
-
+# 1. Start media server
 if [[ "$MEDIA_MODE" == "docker" ]]; then
   docker start "$MEDIA_CONTAINER" >/dev/null
   ok "Media container started"
-  sleep 5
-  docker restart "$MEDIA_CONTAINER" >/dev/null
-  ok "Media container restarted (post-mount)"
 else
   systemctl start "$MEDIA_SERVICE"
   ok "Media service started"
-  sleep 5
+fi
+
+# 2. Wait before starting Riven
+sleep 5
+
+# 3. Start Riven
+docker start "$RIVEN_CONTAINER" >/dev/null
+ok "Riven container started"
+
+# 4. Wait for mount propagation
+sleep 5
+
+# 5. Restart media server (post-mount)
+if [[ "$MEDIA_MODE" == "docker" ]]; then
+  docker restart "$MEDIA_CONTAINER" >/dev/null
+  ok "Media container restarted (post-mount)"
+else
   systemctl restart "$MEDIA_SERVICE"
   ok "Media service restarted (post-mount)"
 fi
+
 
 ############################################
 # DONE
