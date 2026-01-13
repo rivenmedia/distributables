@@ -8,7 +8,7 @@ if [[ "$EUID" -ne 0 ]]; then
   echo
   echo "[✖] This script must be run with sudo"
   echo "    Example:"
-  echo "    sudo curl -fsSL https://raw.githubusercontent.com/AquaHorizonGaming/riven-scripts/main/ubuntu/riven-remount-cycle.sh | sudo bash"
+  echo "    https://raw.githubusercontent.com/AquaHorizonGaming/riven-scripts/main/ubuntu/riven-remount-cycle.sh"
   echo
   exit 1
 fi
