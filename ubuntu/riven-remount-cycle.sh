@@ -76,13 +76,18 @@ section "Unmounting Mount Path"
 
 for attempt in $(seq 1 $UNMOUNT_RETRIES); do
   if ! is_mounted; then
-    ok "Mount is fully unmounted"
+    ok "Mount is already unmounted"
     break
   fi
 
   warn "Unmount attempt $attempt"
   umount "$MOUNT_PATH" || true
   sleep "$WAIT_BETWEEN"
+
+  if ! is_mounted; then
+    ok "Mount successfully unmounted"
+    break
+  fi
 done
 
 if is_mounted; then
