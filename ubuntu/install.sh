@@ -14,7 +14,7 @@ RIVEN_COMPOSE_URL="https://raw.githubusercontent.com/AquaHorizonGaming/distribut
 
 DEFAULT_ORIGIN="http://localhost:3000"
 
-INSTALL_VERSION="v0.5.8"
+INSTALL_VERSION="v0.6"
 
 ############################################
 # HELPERS
@@ -85,7 +85,7 @@ require_url() {
     IFS= read -r -p "$prompt: " val
     val="$(printf '%s' "$val" | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
     [[ "$val" =~ ^https?:// ]] && { printf '%s' "$val"; return; }
-    warn "Must include http:// or https://"
+    warn "Must include http:// or https://" >&2
   done
 }
 
