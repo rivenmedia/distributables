@@ -17,9 +17,9 @@ DEFAULT_MOUNT="/mnt/riven/mount"
 
 UNMOUNT_RETRIES=3
 WAIT_BETWEEN=2
-REMOUNT_WAIT=5
+REMOUNT_WAIT=30
 WAIT_TIME=5
-VERSION=2.0
+VERSION=3.0
 
 ############################################
 # OUTPUT HELPERS
@@ -200,7 +200,7 @@ docker start "$RIVEN_CONTAINER" >/dev/null
 ok "Riven container started"
 
 # 4. Wait for mount propagation
-sleep 15
+sleep 30
 
 # 5. Restart media server (post-mount)
 if [[ "$MEDIA_MODE" == "docker" ]]; then
