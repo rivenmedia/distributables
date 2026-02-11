@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+DEBUG_MODE=false
+if [[ "${1:-}" == "--debug" ]]; then
+  DEBUG_MODE=true
+  shift
+fi
+
 ############################################
 # CONSTANTS
 ############################################
@@ -23,6 +29,49 @@ banner(){ echo -e "\n========================================\n $1\n============
 ok()   { printf "✔  %s\n" "$1"; }
 warn() { printf "⚠  %s\n" "$1"; }
 fail() { printf "✖  %s\n" "$1"; exit 1; }
+
+debug() {
+  [[ "$DEBUG_MODE" == "true" ]] || return 0
+  local source_name="${BASH_SOURCE[1]##*/}"
+  local line_no="${BASH_LINENO[0]:-0}"
+  local func_name="${FUNCNAME[1]:-main}"
+  printf "[DEBUG][%s:%s][%s] %s\n" "$source_name" "$line_no" "$func_name" "$*"
+}
+
+debug_rc() {
+  local rc="$1"
+  shift || true
+  debug "exit_code=${rc} command=$*"
+  return "$rc"
+}
+
+debug_step() {
+  debug "step=$*"
+}
+
+# Capture whether the original stdout is a terminal before logging redirection.
+exec 3>&1
+ORIGINAL_STDOUT_IS_TTY=false
+[[ -t 3 ]] && ORIGINAL_STDOUT_IS_TTY=true
+
+run_docker_compose_up_detached() {
+  local -a compose_cmd=("$@")
+  local rc=0
+
+  debug_step "docker compose up -d --pull always"
+  debug "compose_cmd=${compose_cmd[*]}"
+
+  if [[ "$ORIGINAL_STDOUT_IS_TTY" == "true" ]]; then
+    # Preserve TTY behavior so pull progress updates in-place.
+    "${compose_cmd[@]}" up -d --pull always 1>&3 2>&3 || rc=$?
+  else
+    # Keep normal output in CI / non-interactive shells.
+    "${compose_cmd[@]}" up -d --pull always || rc=$?
+  fi
+
+  debug_rc "$rc" "${compose_cmd[*]} up -d --pull always"
+  return "$rc"
+}
 
 ############################################
 # REQUIRED NON-EMPTY (SILENT)
@@ -164,7 +213,14 @@ log_warn()   { echo "[WARN]  $*"; }
 log_error()  { echo "[ERROR] $*"; }
 log_section(){ echo -e "\n========== $* ==========\n"; }
 
-trap 'log_error "Installer exited unexpectedly at line $LINENO"' ERR
+if [[ "$DEBUG_MODE" == "true" ]]; then
+  export PS4='+ [${BASH_SOURCE##*/}:${LINENO}:${FUNCNAME[0]:-main}] '
+  set -x
+  debug "Debug mode enabled"
+  debug "original_stdout_is_tty=$ORIGINAL_STDOUT_IS_TTY"
+fi
+
+trap 'rc=$?; cmd=${BASH_COMMAND:-unknown}; log_error "Installer exited unexpectedly at line $LINENO (rc=$rc, cmd: $cmd)"; debug "failure_context rc=$rc cmd=$cmd"; exit $rc' ERR
 
 log "Logging initialized"
 log "Log file: $LOG_FILE"
@@ -173,6 +229,7 @@ log "Log file: $LOG_FILE"
 # TIMEZONE (INSTALLER SAFE)
 ############################################
 banner "Timezone"
+debug_step "timezone detection and configuration"
 
 detect_timezone() {
   timedatectl show --property=Timezone --value 2>/dev/null \
@@ -197,6 +254,7 @@ ok "Timezone set: $TZ_SELECTED"
 # SYSTEM DEPS
 ############################################
 banner "System Dependencies"
+debug_step "system dependency verification"
 
 dpkg -s ca-certificates curl gnupg lsb-release openssl fuse3 >/dev/null 2>&1 \
   && ok "System dependencies already installed" \
@@ -244,6 +302,7 @@ ok "Detected user ownership: UID=$TARGET_UID GID=$TARGET_GID"
 # DOCKER
 ############################################
 banner "Docker"
+debug_step "docker installation check"
 
 if command -v docker >/dev/null 2>&1; then
   ok "Docker already installed"
@@ -392,7 +451,7 @@ esac
 # START MEDIA SERVER 
 ############################################
 banner "Starting Media Server"
-docker compose -f docker-compose.media.yml --profile "$MEDIA_PROFILE" up -d
+run_docker_compose_up_detached docker compose -f docker-compose.media.yml --profile "$MEDIA_PROFILE"
 ok "Media server started"
 
 SERVER_IP="$(hostname -I | awk '{print $1}')"
@@ -734,9 +793,13 @@ esac
 # VALIDATION SUMMARY (CONFIRM BEFORE CONTINUE)
 ############################################
 banner "Configuration Summary"
+debug_step "print configuration summary and collect confirmation"
 
 echo "Please review your configuration below:"
 echo ""
+debug "summary timezone=$TZ_SELECTED origin=$ORIGIN media_profile=$MEDIA_PROFILE media_url=http://$SERVER_IP:$MEDIA_PORT"
+debug "summary downloader_flags rd=${RIVEN_DOWNLOADERS_REAL_DEBRID_ENABLED:-unset} ad=${RIVEN_DOWNLOADERS_ALL_DEBRID_ENABLED:-unset} dl=${RIVEN_DOWNLOADERS_DEBRID_LINK_ENABLED:-unset}"
+debug "summary secrets_present media_api_key_set=$([[ -n "${MEDIA_API_KEY:-}" ]] && echo true || echo false) backend_api_key_set=$([[ -n "${BACKEND_API_KEY:-}" ]] && echo true || echo false) auth_secret_set=$([[ -n "${AUTH_SECRET:-}" ]] && echo true || echo false)"
 
 echo "🕒 Timezone"
 echo "  • $TZ_SELECTED"
@@ -768,27 +831,27 @@ SCRAPER_COUNT=0
 
 if [[ "${RIVEN_SCRAPING_TORRENTIO_ENABLED:-false}" == "true" ]]; then
   echo "  • Torrentio"
-  ((SCRAPER_COUNT++))
+  ((++SCRAPER_COUNT))
 fi
 
 if [[ "${RIVEN_SCRAPING_PROWLARR_ENABLED:-false}" == "true" ]]; then
   echo "  • Prowlarr"
-  ((SCRAPER_COUNT++))
+  ((++SCRAPER_COUNT))
 fi
 
 if [[ "${RIVEN_SCRAPING_COMET_ENABLED:-false}" == "true" ]]; then
   echo "  • Comet"
-  ((SCRAPER_COUNT++))
+  ((++SCRAPER_COUNT))
 fi
 
 if [[ "${RIVEN_SCRAPING_JACKETT_ENABLED:-false}" == "true" ]]; then
   echo "  • Jackett"
-  ((SCRAPER_COUNT++))
+  ((++SCRAPER_COUNT))
 fi
 
 if [[ "${RIVEN_SCRAPING_ZILEAN_ENABLED:-false}" == "true" ]]; then
   echo "  • Zilean"
-  ((SCRAPER_COUNT++))
+  ((++SCRAPER_COUNT))
 fi
 
 if [[ "$SCRAPER_COUNT" -eq 0 ]]; then
@@ -921,7 +984,7 @@ ok ".env repaired and sanitized"
 # START RIVEN
 ############################################
 banner "Starting Riven"
-docker compose up -d
+run_docker_compose_up_detached docker compose
 ok "Riven started"
 
 banner "INSTALL COMPLETE"
@@ -1011,4 +1074,3 @@ echo "  • Riven started after config complete"
 echo
 
 ok "Riven is ready 🚀"
-
