@@ -1,136 +1,129 @@
-# Proxmox LXC Helper Script for Riven
+# 🧊 Riven Proxmox LXC Installer (Docker-based)
 
-This repository contains a Proxmox helper script that creates a Debian 12, unprivileged
-LXC container running the Riven backend and frontend on bare metal (no Docker).
-
----
-
-## Requirements
-
-- Proxmox VE **8.1 or later** (including 9.x)
-- Internet connectivity from the Proxmox host and the LXC template mirrors
-- A storage pool that can host LXC containers
-
-The helper will create an **unprivileged** container (CT_TYPE=1) with sensible defaults:
-
-- OS: Debian 12
-- CPU: 4 vCPU
-- RAM: 8 GB
-- Disk: 40 GB
-
-You can override these values via the script's **Advanced Settings** dialog.
+This installer deploys **Riven** inside an **unprivileged Debian 12 LXC** on Proxmox, fully containerized with Docker.
+It is designed to be **safe, repeatable, and beginner-proof**, while still supporting advanced features like GPU passthrough and multiple media servers.
 
 ---
 
-## Creating the Riven LXC
+## ▶️ Run on Proxmox Host
 
-Run this from a **Proxmox VE host shell**:
+Run this **directly on the Proxmox host shell**:
 
 ```bash
-bash -c "$(wget -qLO - https://raw.githubusercontent.com/rivenmedia/distributables/main/proxmox/riven.sh)"
+sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/AquaHorizonGaming/Riven-Scripts/main/proxmox/install.sh)"
 ```
 
-The script will:
-
-- Validate your Proxmox version (8.1+)
-- Create a new **unprivileged** Debian 12 LXC
-- Enable FUSE and mount `/dev/fuse` inside the container
-- Install and configure PostgreSQL inside the LXC
-- Install the Riven backend (Python/uv) and frontend (Node/pnpm) bare metal
-- Create systemd services for both backend and frontend so they start on boot
-
-After the script completes, you should be able to reach:
-
-- Riven backend at: `http://<CT-IP>:8080`
-- Riven frontend at: `http://<CT-IP>:3000`
-
-`<CT-IP>` is the IP address assigned to the LXC (shown in the script output and in `pct list`).
+The installer is fully interactive and will guide you through all required selections.
 
 ---
 
-## What the installer sets up
+## 🛠 What This Installer Does
 
-Inside the Riven LXC, the installer configures:
+### LXC Creation & System Setup
+- Creates an **unprivileged Debian 12 LXC**
+- Enables required container features:
+  - nesting
+  - keyctl
+  - fuse
+- Passes `/dev/fuse` into the container (required for Riven VFS)
+- Optionally passes `/dev/dri` for **GPU acceleration**
 
-- **Directories**
-  - `/riven` – Riven backend checkout & virtualenv
-  - `/riven/data` – data directory (used by the frontend's SQLite DB by default)
-  - `/mount` – FUSE mountpoint for the Riven virtual filesystem (VFS)
-  - `/opt/riven-frontend` – Riven frontend app
-  - `/etc/riven` – configuration directory
+### Docker Environment
+- Installs **Docker Engine**
+- Installs **Docker Compose plugin**
+- Applies sane defaults for Docker-in-LXC operation
 
-- **Database**
-  - PostgreSQL with database `riven`
-  - `postgres` user password set to `postgres` (local-only, inside the CT)
+### Riven Deployment
+- Deploys:
+  - Riven backend
+  - Riven frontend
+  - PostgreSQL database
+- Uses a unified filesystem layout under `/srv/riven`
 
-- **Environment files**
-  - Backend: `/etc/riven/backend.env`
-    - `RIVEN_API_KEY` – randomly generated hex key used by the backend
-    - `RIVEN_DATABASE_HOST=postgresql+psycopg2://postgres:postgres@127.0.0.1/riven`
-    - `RIVEN_FILESYSTEM_MOUNT_PATH=/mount`
-    - `RIVEN_LIBRARY_PATH=/mnt/riven` (path the media servers will see)
-    - `RIVEN_FILESYSTEM_CACHE_DIR=/dev/shm/riven-cache`
-  - Frontend: `/etc/riven/frontend.env`
-    - `DATABASE_URL=/riven/data/riven.db` (SQLite)
-    - `BACKEND_URL=http://127.0.0.1:8080`
-    - `BACKEND_API_KEY=$RIVEN_API_KEY` (same value as backend)
-    - `AUTH_SECRET` – randomly generated, used by the frontend for auth
-    - `ORIGIN=http://localhost:3000`
+### Media Server Support (Optional)
+Media servers are included via Docker Compose **profiles**:
+- Jellyfin
+- Plex
+- Emby
 
-- **Systemd services** (inside the CT)
-  - `riven-backend.service`
-  - `riven-frontend.service`
-
-Both services are enabled and will start automatically when the LXC boots.
+You can enable one or more at any time.
 
 ---
 
-## Checking status and logs
+## 🌐 Access URLs
 
-Assuming your Riven container ID is `106`.
+Once the container is running:
 
-### Enter the container
+- **Riven Backend:**  
+  `http://<CT-IP>:8080`
 
+- **Riven Frontend:**  
+  `http://<CT-IP>:3000`
+
+### Get the Container IP
+From the Proxmox host:
 ```bash
-pct enter 106
-```
-
-### Check service status
-
-```bash
-systemctl status riven-backend
-systemctl status riven-frontend
-```
-
-### View live logs
-
-```bash
-journalctl -u riven-backend -f
-journalctl -u riven-frontend -f
-```
-
-You can also run these directly from the Proxmox host without entering the CT:
-
-```bash
-lxc-attach -n 106 -- journalctl -u riven-backend -f
-lxc-attach -n 106 -- journalctl -u riven-frontend -f
+pct exec <CTID> -- hostname -I
 ```
 
 ---
 
-## Customizing configuration
+## ⚠️ Required Configuration (IMPORTANT)
 
-You can edit the environment files inside the Riven CT to customize settings:
+🚨 **Riven will NOT function without a configured media server** 🚨
 
-- `/etc/riven/backend.env`
-- `/etc/riven/frontend.env`
+You **must** edit the Riven configuration before first use.
 
-After making changes, restart the services:
-
+### Edit configuration inside the container
 ```bash
-systemctl restart riven-backend riven-frontend
+/srv/riven/backend/settings.json
 ```
 
-For advanced configuration (content providers, scrapers, ranking, etc.),
-refer to the upstream Riven documentation and `.env.example` file in the
-Riven repository.
+Configure **at least one** media server (Jellyfin, Plex, or Emby).
+
+### Restart Riven after editing
+```bash
+pct exec <CTID> -- docker restart riven
+```
+
+---
+
+## 🎬 Optional Media Servers
+
+To enable a media server, run **inside the container**:
+
+```bash
+cd /srv/riven/app
+
+docker compose --profile jellyfin up -d
+docker compose --profile plex up -d
+docker compose --profile emby up -d
+```
+
+You may enable **only one** or **multiple**, depending on your setup.
+
+---
+
+## 🔄 Upgrade Riven
+
+To update Riven and its containers, run **inside the container**:
+
+```bash
+/srv/riven/app/upgrade.sh
+```
+
+This safely:
+- Stops containers
+- Pulls updates
+- Restarts services in the correct order
+
+---
+
+## ✅ Summary
+
+- Fully automated Proxmox LXC deployment
+- Unprivileged, secure-by-default container
+- Docker-based, easy to upgrade
+- Optional GPU support
+- Optional Jellyfin / Plex / Emby integration
+- Unified filesystem layout for easy backups
